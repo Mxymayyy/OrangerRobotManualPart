@@ -40,7 +40,7 @@ https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/
 - `ESP32_IP` / `ESP32_PORT` — ต้องตรงกับ IP จริงของ ESP32 (ปกติ `192.168.4.1` ถ้าใช้โหมด AP)
 - `CAMERA_INDEX` — ใช้ `find_camera_index.py` ช่วยหา
 - `DOOR_HAND` ("Left"/"Right") — เลือกว่ามือข้างไหนคุมประตู (**ระวังเรื่อง mirror**
-  ดูหัวข้อ "เรื่องที่มักสับสน" ด้านล่าง)
+  ดูหัวข้อ "เรื่องที่ต้องแก้" ด้านล่าง)
 - `PINCH_NORM_MIN` / `PINCH_NORM_MAX` — ต้องคาลิเบรตเองตามมือ/กล้องของผู้ใช้แต่ละคน
 - `DRIVE_SPEED` / `TURN_SPEED` — ความเร็วมอเตอร์
 - `DOOR_SERVO2_MIRRORED` — true ถ้า servo บานคู่ต้องหมุนสวนทางกัน
@@ -54,7 +54,7 @@ https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/
 สลับโหมด ทุกคำสั่งที่ ESP32 รับต้องมี `SRC:` ตรงกับ `MODE:` ล่าสุดที่ล็อกไว้
 ก่อนถึงจะถูกนำไปใช้จริง (ดูรายละเอียดในคอมเมนต์ต้นไฟล์ `.ino`)
 
-## เรื่องที่มักงง(จากการดีบัก👍)
+## เรื่องที่ต้องแก้(จากการดีบัก👍)
 
 - **กล้อง flip ภาพ** (`cv2.flip(frame, 1)`) ทำให้ label "Left"/"Right" ที่
   MediaPipe ตรวจจับ **สลับข้าง** กับมือจริงของผู้ใช้ — ถ้าคุมประตูผิดข้าง
