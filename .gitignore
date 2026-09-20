@@ -1,0 +1,19 @@
+# โมเดล MediaPipe ที่ดาวน์โหลดอัตโนมัติ (ขนาด ~8MB) ไม่ต้อง commit
+hand_landmarker.task
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# macOS
+.DS_Store
+
+# Arduino IDE build artifacts
+*.hex
+build/
+
+# Editor
+.vscode/
+.idea/
