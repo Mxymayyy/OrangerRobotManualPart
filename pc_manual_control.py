@@ -27,14 +27,17 @@ MODEL_URL = (
 )
 
 #ค่าคุมประตู (pinch distance -> servo angle)
-DOOR_MIN_ANGLE = 0             # มุม servo ตอนหุบนิ้วสนิท (ประตูปิด)
-DOOR_MAX_ANGLE = 90            # มุม servo ตอนกางนิ้วเต็มที่ (ประตูเปิดสุด)
+# servo แต่ละตัวมีมุม "ปิด"/"เปิด" ของตัวเอง แยกกันตรงๆ ไม่ใช้สูตร mirror
+# แบบเดิมแล้ว เพราะทิศทางการหมุนจริงของ servo ทั้งสองตัวไม่สมมาตรกัน
+DOOR1_CLOSED_ANGLE = 90   # servo ตัวที่ 1: มุมตอนปิดสนิท
+DOOR1_OPEN_ANGLE = 0      # servo ตัวที่ 1: มุมตอนเปิดสุด
+DOOR2_CLOSED_ANGLE = 180  # servo ตัวที่ 2: มุมตอนปิดสนิท
+DOOR2_OPEN_ANGLE = 90     # servo ตัวที่ 2: มุมตอนเปิดสุด
 PINCH_NORM_MIN = 0.1           # ค่า pinch distance (normalized) ต่ำสุดที่ถือว่า "หุบ"
 PINCH_NORM_MAX = 1.6           # ค่า pinch distance (normalized) สูงสุดที่ถือว่า "กางเต็มที่"
-DOOR_SERVO2_MIRRORED = True    # True = servo ตัวที่ 2 หมุนสวนทางตัวแรก
 
 # --- ค่าคุมทิศทาง (hand-pointing direction) ---
-DIRECTION_MIN_VECTOR_LEN = 0.2  # ความยาวขั้นต่ำ (normalized) ของเวกเตอร์ข้อมือ->ปลายนิ้วชี้
+DIRECTION_MIN_VECTOR_LEN = 0.15  # ความยาวขั้นต่ำ (normalized) ของเวกเตอร์ข้อมือ->ปลายนิ้วกลาง
                                    # ก่อนจะยอมรับว่ามือกำลัง "ชี้ทิศ"
 DRIVE_SPEED = 150               # ความเร็วตอนเดินหน้า/ถอยหลัง
 TURN_SPEED = 150                # ความเร็วตอนหมุนเลี้ยวซ้าย/ขวา
@@ -107,19 +110,29 @@ def compute_pinch_distance(landmarks):
     return pinch_dist / hand_scale
 
 
-def pinch_distance_to_door_angle(pinch_norm):
-    """แปลงค่า pinch distance (normalized) เป็นมุม servo ประตู พร้อม clip ให้อยู่ในช่วง"""
+def compute_pinch_ratio(pinch_norm):
+    """แปลงค่า pinch distance (normalized) เป็นสัดส่วน 0.0(หุบสนิท) - 1.0(กางสุด)"""
     span = PINCH_NORM_MAX - PINCH_NORM_MIN
     if span <= 0.1:
-        return DOOR_MIN_ANGLE
+        return 0.0
     ratio = (pinch_norm - PINCH_NORM_MIN) / span
-    ratio = max(0.0, min(1.0, ratio))  # clip ให้อยู่ในช่วง 0.0-1.0
-    return int(DOOR_MIN_ANGLE + (DOOR_MAX_ANGLE - DOOR_MIN_ANGLE) * ratio)
+    return max(0.0, min(1.0, ratio))  # clip ให้อยู่ในช่วง 0.0-1.0
+
+
+def ratio_to_door_angles(ratio):
+    """
+    แปลงสัดส่วน 0.0(หุบ)-1.0(กาง) เป็นมุม servo ทั้ง 2 ตัว โดยแต่ละตัวเทียบ
+    เส้นตรงระหว่างมุม "ปิด" กับมุม "เปิด" ของตัวเอง (DOOR1_*/DOOR2_* ด้านบน)
+    ไม่ได้สมมติว่าทิศทางการหมุนของ servo 2 ตัวสมมาตรกันอีกต่อไป
+    """
+    angle1 = int(DOOR1_CLOSED_ANGLE + (DOOR1_OPEN_ANGLE - DOOR1_CLOSED_ANGLE) * ratio)
+    angle2 = int(DOOR2_CLOSED_ANGLE + (DOOR2_OPEN_ANGLE - DOOR2_CLOSED_ANGLE) * ratio)
+    return angle1, angle2
 
 
 def compute_direction_command(landmarks):
     """
-    ดูทิศทางที่มือชี้ไป (เวกเตอร์จากข้อมือ [0] ไปปลายนิ้วชี้ [8]) แล้ว
+    ดูทิศทางที่มือชี้ไป (เวกเตอร์จากข้อมือ [0] ไปปลายนิ้วกลาง [12]) แล้ว
     จำแนกเป็นหนึ่งใน 4 ทิศ หรือ STOP ถ้าเวกเตอร์สั้นเกินไปเพราะกำมือ)
 
     ใช้ dominant axis ตัดสินถ้าเวกเตอร์เอียงไปทางแนวตั้งมากกว่า 
@@ -128,10 +141,10 @@ def compute_direction_command(landmarks):
     คืนค่า (left_speed, right_speed, label) สำหรับ debug/overlay
     """
     wrist = landmarks[0]
-    index_tip = landmarks[8]
+    middle_tip = landmarks[12]
 
-    dx = index_tip.x - wrist.x          # + = ชี้ไปทางขวาของภาพ
-    dy = index_tip.y - wrist.y          # + = ชี้ลงล่าง (พิกัดภาพ y เพิ่มลงล่าง)
+    dx = middle_tip.x - wrist.x          # + = ชี้ไปทางขวาของภาพ
+    dy = middle_tip.y - wrist.y          # + = ชี้ลงล่าง (พิกัดภาพ y เพิ่มลงล่าง)
 
     vector_len = math.hypot(dx, dy)
     #vector น้อยกว่าที่กำหนด -> ถือว่าไม่ชี้ทิศทางใด ให้หยุด
@@ -202,9 +215,9 @@ def main():
     last_send_time = 0.0
     send_interval = 1.0 / SEND_RATE_HZ
 
-    # ค่าล่าสุดที่ใช้งานได้ (เผื่อกรณีมือหลุดจากเฟรมไปชั่วขณะ)
-    last_door_angle_1 = DOOR_MIN_ANGLE
-    last_door_angle_2 = DOOR_MIN_ANGLE
+    # ค่าล่าสุดที่ใช้งานได้ (เผื่อกรณีมือหลุดจากเฟรมไปชั่วขณะ) เริ่มต้นที่ตำแหน่งปิดสนิทของแต่ละตัว
+    last_door_angle_1 = DOOR1_CLOSED_ANGLE
+    last_door_angle_2 = DOOR2_CLOSED_ANGLE
 
     try:
         while True:
@@ -236,11 +249,8 @@ def main():
             # คำสั่งประตู
             if door_hand_landmarks is not None:
                 pinch_norm = compute_pinch_distance(door_hand_landmarks)
-                door_angle_1 = pinch_distance_to_door_angle(pinch_norm)
-                if DOOR_SERVO2_MIRRORED:
-                    door_angle_2 = DOOR_MAX_ANGLE - (door_angle_1 - DOOR_MIN_ANGLE)
-                else:
-                    door_angle_2 = door_angle_1
+                ratio = compute_pinch_ratio(pinch_norm)
+                door_angle_1, door_angle_2 = ratio_to_door_angles(ratio)
                 last_door_angle_1, last_door_angle_2 = door_angle_1, door_angle_2
             else:
                 pinch_norm = None
@@ -274,9 +284,11 @@ def main():
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
     finally:
-        # ตอนปิดโปรแกรม ส่งคำสั่งหยุดครั้งสุดท้าย
+        # ตอนปิดโปรแกรม ส่งคำสั่งหยุดครั้งสุดท้าย พร้อมสั่งประตูไปมุม "ปิดสนิท"
+        # จริงของแต่ละ servo (ไม่ใช่ 0,0 ตรงๆ อีกต่อไป เพราะมุมปิดของ servo
+        # แต่ละตัวตอนนี้ไม่เท่ากับ 0)
         try:
-            stop_msg = f"SRC:{THIS_SRC};M:0,0;D:0,0\n"
+            stop_msg = f"SRC:{THIS_SRC};M:0,0;D:{DOOR1_CLOSED_ANGLE},{DOOR2_CLOSED_ANGLE}\n"
             sock.sendto(stop_msg.encode("utf-8"), (ESP32_IP, ESP32_PORT))
         except OSError:
             pass

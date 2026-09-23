@@ -1,6 +1,20 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <ESP32Servo.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+// ไลบรารีที่ต้องติดตั้งเพิ่มผ่าน Library Manager: "Adafruit SSD1306" และ
+// "Adafruit GFX Library" (ทั้งคู่ค้นหาชื่อตรงๆ ได้เลยใน Arduino IDE)
+
+// --- จอ OLED (I2C, เช่น SSD1306 0.96") ---
+// ต่อสาย: SDA -> GPIO21, SCL -> GPIO22 (ขาเริ่มต้นของ Wire บน ESP32 devkit
+// ส่วนใหญ่ ถ้าบอร์ดจริงใช้ขาอื่นให้แก้ตอนเรียก Wire.begin() ใน setup())
+// ที่อยู่ I2C ปกติคือ 0x3C แต่บางแผงเป็น 0x3D ลองสลับดูถ้าจอไม่ขึ้น
+#define OLED_WIDTH 128
+#define OLED_HEIGHT 64
+#define OLED_I2C_ADDR 0x3C
+Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 
 
 
@@ -12,8 +26,8 @@
 // --- ทางเลือก B: ให้ ESP32 เป็น Access Point เอง แทนการพึ่ง WiFi
 //     สถานที่จัดงาน (uncomment แล้วใช้ WiFi.softAP(...) ใน setup() แทน
 //     WiFi.begin(...) ถ้าเลือกใช้ทางนี้) ---
-const char* AP_SSID = "GEMBOT_AP";
-const char* AP_PASSWORD = "gembot123";
+const char* AP_SSID = "ORANGERBOT_AP";
+const char* AP_PASSWORD = "pittipiw";
 
 const unsigned int UDP_PORT = 4210;   // ต้องตรงกับ ESP32_PORT ในสคริปต์ PC
 
@@ -42,6 +56,44 @@ unsigned long lastCommandMillis = 0;
 // เริ่มต้นเป็น "NONE" หมายความว่ายังไม่มีสคริปต์ไหนประกาศ MODE เข้ามาเลย
 // (จะยังไม่ยอมรับคำสั่ง M:/D: ใดๆ จนกว่าจะมี MODE: เข้ามาก่อน)
 String currentMode = "NONE";
+
+// ค่าล่าสุดที่ใช้แสดงผลบนจอ OLED (อัปเดตทุกครั้งที่มีคำสั่ง M:/D: ที่ผ่าน guard)
+int g_leftSpeed = 0;
+int g_rightSpeed = 0;
+int g_doorAngle1 = 90;   // เริ่มต้นตรงกับมุมปิดสนิทใน setup()
+int g_doorAngle2 = 180;
+bool g_isStopped = true; // true = อยู่ในสถานะ safety-timeout (ไม่ได้รับคำสั่งมานาน)
+
+unsigned long lastDisplayUpdateMillis = 0;
+const unsigned long DISPLAY_UPDATE_INTERVAL_MS = 150; // กันจออัปเดตถี่เกินจนหน่วง loop หลัก
+
+void updateDisplay() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+
+  display.print("MODE: ");
+  display.println(currentMode);
+
+  display.println(g_isStopped ? "STATUS: STOPPED (timeout)" : "STATUS: RUNNING");
+
+  display.println("");
+  display.print("Motor L: ");
+  display.println(g_leftSpeed);
+  display.print("Motor R: ");
+  display.println(g_rightSpeed);
+
+  display.println("");
+  display.print("Door1: ");
+  display.print(g_doorAngle1);
+  display.println((char)247); // ตัวอักษรองศา (°) โดยประมาณบนฟอนต์เริ่มต้น
+  display.print("Door2: ");
+  display.print(g_doorAngle2);
+  display.println((char)247);
+
+  display.display();
+}
 
 void setMotor(int pinIN1, int pinIN2, int speed) {
   // speed อยู่ในช่วง [-255, 255] (โค้ดส่งมาช่วง -150 ถึง 150)
@@ -78,6 +130,8 @@ bool parseAndApplyCommand(const String& msg) {
     currentMode = msg.substring(5);
     currentMode.trim();
     stopRobot();  // หยุดรถทุกครั้งที่มีการสลับโหมด กันความเร็วเดิมค้างข้ามโหมด
+    g_leftSpeed = 0;
+    g_rightSpeed = 0;
     Serial.print("MODE locked to: ");
     Serial.println(currentMode);
     return true;
@@ -126,11 +180,30 @@ bool parseAndApplyCommand(const String& msg) {
   doorServo1.write(doorAngle1);
   doorServo2.write(doorAngle2);
 
+  // เก็บค่าล่าสุดไว้แสดงผลบนจอ OLED
+  g_leftSpeed = leftSpeed;
+  g_rightSpeed = rightSpeed;
+  g_doorAngle1 = doorAngle1;
+  g_doorAngle2 = doorAngle2;
+  g_isStopped = false;
+
   return true;
 }
 
 void setup() {
   Serial.begin(115200);
+
+  Wire.begin(); // SDA=21, SCL=22 (ค่า default บน ESP32 devkit ส่วนใหญ่)
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR)) {
+    Serial.println("[OLED] ERROR: หาจอไม่เจอ เช็คสาย SDA/SCL และที่อยู่ I2C (0x3C/0x3D)");
+  } else {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    display.println("GEMBOT booting...");
+    display.display();
+  }
 
   pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
   pinMode(RIGHT_MOTOR_DIR_PIN, OUTPUT);
@@ -139,8 +212,8 @@ void setup() {
 
   doorServo1.attach(DOOR_SERVO_1_PIN);
   doorServo2.attach(DOOR_SERVO_2_PIN);
-  doorServo1.write(0);  // เริ่มต้นให้ประตูปิด
-  doorServo2.write(0);
+  doorServo1.write(90);   // ปิดสนิท — ต้องตรงกับ DOOR1_CLOSED_ANGLE ใน pc_manual_control.py
+  doorServo2.write(180);  // ปิดสนิท — ต้องตรงกับ DOOR2_CLOSED_ANGLE ใน pc_manual_control.py
 
   // --- ทางเลือก A: เชื่อมต่อ WiFi เครือข่ายเดิม ---
   /*WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -184,5 +257,12 @@ void loop() {
   // สคริปต์ PC ค้าง ฯลฯ) ให้หยุดหุ่นยนต์ทันที
   if (millis() - lastCommandMillis > COMMAND_TIMEOUT_MS) {
     stopRobot();
+    g_isStopped = true;
+  }
+
+  // วาดจอ OLED เป็นระยะ (ไม่ทุก loop เพราะ I2C ช้ากว่า loop หลักมาก จะทำให้หน่วง)
+  if (millis() - lastDisplayUpdateMillis > DISPLAY_UPDATE_INTERVAL_MS) {
+    updateDisplay();
+    lastDisplayUpdateMillis = millis();
   }
 }
