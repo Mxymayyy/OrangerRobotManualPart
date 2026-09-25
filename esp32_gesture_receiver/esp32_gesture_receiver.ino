@@ -12,8 +12,8 @@
 // --- ทางเลือก B: ให้ ESP32 เป็น Access Point เอง แทนการพึ่ง WiFi
 //     สถานที่จัดงาน (uncomment แล้วใช้ WiFi.softAP(...) ใน setup() แทน
 //     WiFi.begin(...) ถ้าเลือกใช้ทางนี้) ---
-const char* AP_SSID = "GEMBOT_AP";
-const char* AP_PASSWORD = "gembot123";
+const char* AP_SSID = "ORANGERBOT_AP";
+const char* AP_PASSWORD = "pittipiw";
 
 const unsigned int UDP_PORT = 4210;   // ต้องตรงกับ ESP32_PORT ในสคริปต์ PC
 
@@ -139,8 +139,8 @@ void setup() {
 
   doorServo1.attach(DOOR_SERVO_1_PIN);
   doorServo2.attach(DOOR_SERVO_2_PIN);
-  doorServo1.write(0);  // เริ่มต้นให้ประตูปิด
-  doorServo2.write(0);
+  doorServo1.write(90);  // เริ่มต้นให้ประตูปิด
+  doorServo2.write(90);
 
   // --- ทางเลือก A: เชื่อมต่อ WiFi เครือข่ายเดิม ---
   /*WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
