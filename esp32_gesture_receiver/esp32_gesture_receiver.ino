@@ -212,8 +212,8 @@ void setup() {
 
   doorServo1.attach(DOOR_SERVO_1_PIN);
   doorServo2.attach(DOOR_SERVO_2_PIN);
-  doorServo1.write(90);   // ปิดสนิท — ต้องตรงกับ DOOR1_CLOSED_ANGLE ใน pc_manual_control.py
-  doorServo2.write(90);  // ปิดสนิท — ต้องตรงกับ DOOR2_CLOSED_ANGLE ใน pc_manual_control.py
+  doorServo1.write(0);  // เริ่มต้นให้ประตูปิด
+  doorServo2.write(0);
 
   // --- ทางเลือก A: เชื่อมต่อ WiFi เครือข่ายเดิม ---
   /*WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
