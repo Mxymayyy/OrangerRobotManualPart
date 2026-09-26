@@ -13,14 +13,19 @@ import urllib.request
 # ---------------------------------------------------------------------
 ESP32_IP = "192.168.4.1"
 ESP32_PORT = 4210   
-CAMERA_INDEX = 0
+CAMERA_INDEX = 1
 
 DOOR_HAND = "Left"            # จริงๆคือมือขวา
 
 SEND_RATE_HZ = 15             # ความถี่ในการส่งคำสั่ง
 
 # --- โมเดลสำหรับ HandLandmarker (Tasks API) ---
-MODEL_PATH = "/Users/chanisaniyom/Desktop/OrangeJuiceRobot/hand_landmarker.task"
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hand_landmarker.task")
+# หมายเหตุ: เดิม hardcode เป็น absolute path ตรงๆ (เช่น
+# "/Users/xxx/Desktop/OrangeJuiceRobot/hand_landmarker.task") พอย้าย/เปลี่ยน
+# ชื่อโฟลเดอร์โปรเจกต์ (เช่นเป็น OrangeManualRobot) path เดิมจะหาไม่เจอทันที
+# เปลี่ยนมาคำนวณจากตำแหน่งไฟล์สคริปต์เองแทน จะได้ไม่พังไม่ว่าจะย้าย/
+# เปลี่ยนชื่อโฟลเดอร์ภายหลัง
 MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/"
     "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
@@ -30,17 +35,20 @@ MODEL_URL = (
 # servo แต่ละตัวมีมุม "ปิด"/"เปิด" ของตัวเอง แยกกันตรงๆ ไม่ใช้สูตร mirror
 # แบบเดิมแล้ว เพราะทิศทางการหมุนจริงของ servo ทั้งสองตัวไม่สมมาตรกัน
 DOOR1_CLOSED_ANGLE = 90   # servo ตัวที่ 1: มุมตอนปิดสนิท
-DOOR1_OPEN_ANGLE = 0      # servo ตัวที่ 1: มุมตอนเปิดสุด
-DOOR2_CLOSED_ANGLE = 180  # servo ตัวที่ 2: มุมตอนปิดสนิท
-DOOR2_OPEN_ANGLE = 90     # servo ตัวที่ 2: มุมตอนเปิดสุด
+DOOR1_OPEN_ANGLE = 180      # servo ตัวที่ 1: มุมตอนเปิดสุด
+DOOR2_CLOSED_ANGLE = 90  # servo ตัวที่ 2: มุมตอนปิดสนิท
+DOOR2_OPEN_ANGLE = 0     # servo ตัวที่ 2: มุมตอนเปิดสุด
 PINCH_NORM_MIN = 0.1           # ค่า pinch distance (normalized) ต่ำสุดที่ถือว่า "หุบ"
 PINCH_NORM_MAX = 1.6           # ค่า pinch distance (normalized) สูงสุดที่ถือว่า "กางเต็มที่"
 
 # --- ค่าคุมทิศทาง (hand-pointing direction) ---
 DIRECTION_MIN_VECTOR_LEN = 0.15  # ความยาวขั้นต่ำ (normalized) ของเวกเตอร์ข้อมือ->ปลายนิ้วกลาง
                                    # ก่อนจะยอมรับว่ามือกำลัง "ชี้ทิศ"
-DRIVE_SPEED = 150               # ความเร็วตอนเดินหน้า/ถอยหลัง
-TURN_SPEED = 150                # ความเร็วตอนหมุนเลี้ยวซ้าย/ขวา
+DRIVE_LEFT_SPEED = 200               # ความเร็วตอนเดินหน้า/
+DRIVE_RIGHT_SPEED = 200               # ความเร็วตอนเดินหน้า/ถอยหลัง
+BACK_LEFT_SPEED = 200               # ความเร็วตอนเดินหน้า/ถอยหลัง
+BACK_RIGHT_SPEED = 200   
+TURN_SPEED = 200                # ความเร็วตอนหมุนเลี้ยวซ้าย/ขวา
 
 # --- MODE/SRC guard --- from claud code ใส่แล้วใช้ได้
 # THIS_SRC คือ "ตัวตน" ของสคริปต์นี้ ใช้แนบไปกับทุกคำสั่งที่ส่ง เพื่อให้
@@ -154,15 +162,15 @@ def compute_direction_command(landmarks):
     if abs(dy) >= abs(dx):
         # แกนตั้งเด่นกว่า -> เดินหน้า/ถอยหลัง
         if dy < 0:
-            return DRIVE_SPEED, DRIVE_SPEED, "FORWARD"
+            return DRIVE_RIGHT_SPEED, DRIVE_LEFT_SPEED, "FORWARD"
         else:
-            return -DRIVE_SPEED, -DRIVE_SPEED, "BACKWARD"
+            return -BACK_LEFT_SPEED, -BACK_LEFT_SPEED, "BACKWARD"
     else:
         # แกนนอนเด่นกว่า -> เลี้ยวซ้าย/ขวา (pivot turn)
         if dx < 0:
-            return -TURN_SPEED, TURN_SPEED, "TURN LEFT"
+            return TURN_SPEED, -TURN_SPEED, "TURN LEFT"
         else:
-            return TURN_SPEED, -TURN_SPEED, "TURN RIGHT"
+            return -TURN_SPEED, TURN_SPEED, "TURN RIGHT"
 
 
 def draw_hand(frame, landmarks, width, height):

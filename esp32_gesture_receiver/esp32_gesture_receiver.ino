@@ -61,7 +61,7 @@ String currentMode = "NONE";
 int g_leftSpeed = 0;
 int g_rightSpeed = 0;
 int g_doorAngle1 = 90;   // เริ่มต้นตรงกับมุมปิดสนิทใน setup()
-int g_doorAngle2 = 180;
+int g_doorAngle2 = 90;
 bool g_isStopped = true; // true = อยู่ในสถานะ safety-timeout (ไม่ได้รับคำสั่งมานาน)
 
 unsigned long lastDisplayUpdateMillis = 0;
@@ -213,7 +213,7 @@ void setup() {
   doorServo1.attach(DOOR_SERVO_1_PIN);
   doorServo2.attach(DOOR_SERVO_2_PIN);
   doorServo1.write(90);   // ปิดสนิท — ต้องตรงกับ DOOR1_CLOSED_ANGLE ใน pc_manual_control.py
-  doorServo2.write(180);  // ปิดสนิท — ต้องตรงกับ DOOR2_CLOSED_ANGLE ใน pc_manual_control.py
+  doorServo2.write(90);  // ปิดสนิท — ต้องตรงกับ DOOR2_CLOSED_ANGLE ใน pc_manual_control.py
 
   // --- ทางเลือก A: เชื่อมต่อ WiFi เครือข่ายเดิม ---
   /*WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
