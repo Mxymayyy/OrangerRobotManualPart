@@ -13,22 +13,31 @@ import urllib.request
 # ---------------------------------------------------------------------
 ESP32_IP = "192.168.4.1"
 ESP32_PORT = 4210   
-CAMERA_INDEX = 1
+CAMERA1_INDEX = 1
 
 DOOR_HAND = "Left"            # จริงๆคือมือขวา
 
 SEND_RATE_HZ = 15             # ความถี่ในการส่งคำสั่ง
 
 # --- โมเดลสำหรับ HandLandmarker (Tasks API) ---
-MODEL_PATH = "/Users/chanisaniyom/Desktop/OrangeJuiceRobot/hand_landmarker.task"
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hand_landmarker.task")
+# หมายเหตุ: เดิม hardcode เป็น absolute path ตรงๆ (เช่น
+# "/Users/xxx/Desktop/OrangeJuiceRobot/hand_landmarker.task") พอย้าย/เปลี่ยน
+# ชื่อโฟลเดอร์โปรเจกต์ (เช่นเป็น OrangeManualRobot) path เดิมจะหาไม่เจอทันที
+# เปลี่ยนมาคำนวณจากตำแหน่งไฟล์สคริปต์เองแทน จะได้ไม่พังไม่ว่าจะย้าย/
+# เปลี่ยนชื่อโฟลเดอร์ภายหลัง
 MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/"
     "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 )
 
 #ค่าคุมประตู (pinch distance -> servo angle)
-DOOR_MIN_ANGLE = 0             # มุม servo ตอนหุบนิ้วสนิท (ประตูปิด)
-DOOR_MAX_ANGLE = 90            # มุม servo ตอนกางนิ้วเต็มที่ (ประตูเปิดสุด)
+# servo แต่ละตัวมีมุม "ปิด"/"เปิด" ของตัวเอง แยกกันตรงๆ ไม่ใช้สูตร mirror
+# แบบเดิมแล้ว เพราะทิศทางการหมุนจริงของ servo ทั้งสองตัวไม่สมมาตรกัน
+DOOR1_CLOSED_ANGLE = 70   # servo ตัวที่ 1: มุมตอนปิดสนิท
+DOOR1_OPEN_ANGLE = 180      # servo ตัวที่ 1: มุมตอนเปิดสุด
+DOOR2_CLOSED_ANGLE = 90  # servo ตัวที่ 2: มุมตอนปิดสนิท
+DOOR2_OPEN_ANGLE = 0     # servo ตัวที่ 2: มุมตอนเปิดสุด
 PINCH_NORM_MIN = 0.1           # ค่า pinch distance (normalized) ต่ำสุดที่ถือว่า "หุบ"
 PINCH_NORM_MAX = 1.6           # ค่า pinch distance (normalized) สูงสุดที่ถือว่า "กางเต็มที่"
 
@@ -206,9 +215,10 @@ def main():
     # ล็อกโหมดที่ ESP32 ก่อนเริ่ม loop ควบคุมจริง
     announce_mode(sock)
 
-    cap = cv2.VideoCapture(CAMERA_INDEX)
-    if not cap.isOpened():
-        print("ERROR: เปิดกล้องไม่ได้ ตรวจสอบค่า CAMERA_INDEX")
+    cap1 = cv2.VideoCapture(CAMERA1_INDEX)
+    
+    if not cap1.isOpened():
+        print("ERROR: เปิดกล้องไม่ได้ ตรวจสอบค่า CAMERA1_INDEX")
         return
 
     last_send_time = 0.0
@@ -220,7 +230,7 @@ def main():
 
     try:
         while True:
-            ok, frame = cap.read()
+            ok, frame = cap1.read()
             if not ok:
                 print("WARNING: อ่านภาพจากกล้องไม่สำเร็จ")
                 break
@@ -292,7 +302,7 @@ def main():
         except OSError:
             pass
 
-        cap.release()
+        cap1.release()
         cv2.destroyAllWindows()
         landmarker.close()
 
