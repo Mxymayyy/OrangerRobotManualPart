@@ -34,7 +34,7 @@ MODEL_URL = (
 #ค่าคุมประตู (pinch distance -> servo angle)
 # servo แต่ละตัวมีมุม "ปิด"/"เปิด" ของตัวเอง แยกกันตรงๆ ไม่ใช้สูตร mirror
 # แบบเดิมแล้ว เพราะทิศทางการหมุนจริงของ servo ทั้งสองตัวไม่สมมาตรกัน
-DOOR1_CLOSED_ANGLE = 70   # servo ตัวที่ 1: มุมตอนปิดสนิท
+DOOR1_CLOSED_ANGLE = 90   # servo ตัวที่ 1: มุมตอนปิดสนิท
 DOOR1_OPEN_ANGLE = 180      # servo ตัวที่ 1: มุมตอนเปิดสุด
 DOOR2_CLOSED_ANGLE = 90  # servo ตัวที่ 2: มุมตอนปิดสนิท
 DOOR2_OPEN_ANGLE = 0     # servo ตัวที่ 2: มุมตอนเปิดสุด
